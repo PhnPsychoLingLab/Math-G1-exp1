@@ -134,40 +134,6 @@ var routineTimer;
 async function experimentInit() {
   // Initialize components for Routine "loading"
   loadingClock = new util.Clock();
-  // 全局變數初始化
-  window.audioChunks = [];
-  window.mediaRecorder = null;
-  window.microphoneStream = null;
-  window.lastAudioUploadPromise = null; // 追蹤上傳進度
-  
-  // 動態加載 jsPsychPipe 插件
-  function loadScript(url) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = url;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-  
-  // 加載插件
-  loadScript('https://unpkg.com/@jspsych-contrib/plugin-pipe')
-    .then(() => {
-      console.log('jsPsychPipe 插件加載成功');
-    })
-    .catch(error => {
-      console.error('jsPsychPipe 插件加載失敗:', error);
-    });
-    
-  // 確認插件加載成功
-  if (typeof jsPsychPipe !== 'undefined') {
-    console.log('jsPsychPipe 插件已加載');
-    // 使用 jsPsychPipe...
-  } else {
-    console.error('jsPsychPipe 插件未加載');
-    // 回退方案...
-  }
   // Initialize components for Routine "welcome"
   welcomeClock = new util.Clock();
   hello_np = new visual.ButtonStim({
@@ -371,44 +337,113 @@ function loadingRoutineBegin(snapshot) {
     routineTimer.reset();
     loadingMaxDurationReached = false;
     // update component parameters for each repeat
-    // 全局變數初始化
+    console.log("檢查麥克風權限狀態...");
+    
+    // 全局變數用於存儲音訊數據
     window.audioChunks = [];
     window.mediaRecorder = null;
-    window.microphoneStream = null;
-    window.lastAudioUploadPromise = null; // 追蹤上傳進度
     
-    // 請求麥克風權限函數
+    // 首先檢查權限狀態
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'microphone' })
+        .then(permissionStatus => {
+          console.log("麥克風權限狀態:", permissionStatus.state);
+          
+          // 根據權限狀態執行不同的操作
+          if (permissionStatus.state === 'granted') {
+            console.log("麥克風權限已預先授予");
+            // 已有權限，直接獲取麥克風流
+            getAndSetupMicrophone();
+          } else {
+            console.log("需要請求麥克風權限");
+            // 需要請求權限
+            requestMicrophoneAccess();
+          }
+          
+          // 監聽權限變化
+          permissionStatus.onchange = () => {
+            console.log("麥克風權限狀態變更為:", permissionStatus.state);
+          };
+        })
+        .catch(error => {
+          console.error("檢查權限狀態失敗:", error);
+          // 無法檢查權限狀態，直接嘗試請求
+          requestMicrophoneAccess();
+        });
+    } else {
+      console.log("瀏覽器不支持 permissions API，直接請求麥克風");
+      // 無法檢查權限狀態，直接嘗試請求
+      requestMicrophoneAccess();
+    }
+    
+    // 獲取並設置麥克風
+    function getAndSetupMicrophone() {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+          .then(stream => {
+            console.log("成功獲取麥克風流");
+            console.log("麥克風串流軌道數量:", stream.getAudioTracks().length);
+            console.log("麥克風是否靜音:", stream.getAudioTracks()[0].muted);
+            console.log("麥克風狀態:", stream.getAudioTracks()[0].enabled);
+            
+            window.microphoneStream = stream;
+            
+            // 可以繼續進行實驗
+            setTimeout(() => {
+              continueRoutine = false;
+            }, 1000);
+          })
+          .catch(error => {
+            console.error("獲取麥克風流失敗:", error);
+            // 即使失敗也繼續實驗，但可能需要提示用戶
+            setTimeout(() => {
+              continueRoutine = false;
+            }, 1000);
+          });
+      } else {
+        console.error("瀏覽器不支持 getUserMedia");
+        // 不支持也繼續實驗，但可能需要提示用戶
+        setTimeout(() => {
+          continueRoutine = false;
+        }, 1000);
+      }
+    }
+    
+    // 請求麥克風權限
     function requestMicrophoneAccess() {
-      console.log("請求麥克風權限...");
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true, video: false })
           .then(stream => {
             console.log("麥克風權限已授予");
+            console.log("麥克風串流軌道數量:", stream.getAudioTracks().length);
+            console.log("麥克風是否靜音:", stream.getAudioTracks()[0].muted);
+            console.log("麥克風狀態:", stream.getAudioTracks()[0].enabled);
+            
             window.microphoneStream = stream;
             
-            // 權限獲取後可以繼續
+            // 成功獲取權限後，繼續實驗
             setTimeout(() => {
               continueRoutine = false;
-            }, 2000);
+            }, 2000); // 給用戶更多時間看到權限已授予
           })
           .catch(error => {
             console.error("麥克風權限錯誤:", error);
-            // 即使出錯也繼續
+            console.error("錯誤名稱:", error.name);
+            console.error("錯誤訊息:", error.message);
+            
+            // 權限被拒絕，也繼續實驗（可能需要顯示提示）
             setTimeout(() => {
               continueRoutine = false;
-            }, 2000);
+            }, 1000);
           });
       } else {
-        console.error("瀏覽器不支持 getUserMedia");
-        // 不支持也繼續實驗
+        console.error("瀏覽器不支持getUserMedia");
+        // 不支持getUserMedia，繼續實驗
         setTimeout(() => {
           continueRoutine = false;
-        }, 2000);
+        }, 1000);
       }
     }
-    
-    // 直接請求麥克風權限
-    requestMicrophoneAccess();
     psychoJS.experiment.addData('loading.started', globalClock.getTime());
     loadingMaxDuration = null
     // keep track of which components have finished
@@ -826,8 +861,6 @@ function exp1_pre_trialsLoopEndIteration(scheduler, snapshot) {
 
 
 var exp1_preMaxDurationReached;
-var routineStartTime;
-var exp1_pre_stimuli;
 var exp1_preMaxDuration;
 var exp1_preComponents;
 function exp1_preRoutineBegin(snapshot) {
@@ -843,133 +876,93 @@ function exp1_preRoutineBegin(snapshot) {
     exp1_preMaxDurationReached = false;
     // update component parameters for each repeat
     // 記錄開始時間
-    routineStartTime = Date.now();
-    
-    // 檢查 stimuli 變數是否存在
-    if (typeof exp1_pre_stimuli === 'undefined') {
-      console.warn('exp1_pre_stimuli 未定義，使用默認圖片');
-      exp1_pre_stimuli = './exp1_pre/G1_exp1_pre1.png'; // 使用默認圖像
-    }
-    
-    // 開始錄音
+    window.recordingStartTime = Date.now();
+    // 清空之前的錄音數據
     window.audioChunks = [];
     
-    // 設置錄音機
-    if (window.microphoneStream) {
-      try {
-        // 確保音訊軌道已啟用
+    // 處理 AudioContext 需要用戶交互的問題
+    function resumeAudioContext() {
+      if (window.microphoneStream) {
+        // 嘗試恢復所有音訊軌道
         window.microphoneStream.getAudioTracks().forEach(track => {
           if (track.enabled === false) {
             track.enabled = true;
+            console.log("已啟用音訊軌道");
           }
         });
+      }
+    }
+    
+    // 直接嘗試恢復 AudioContext
+    resumeAudioContext();
+    
+    // 如果有麥克風權限，創建新的MediaRecorder
+    if (window.microphoneStream) {
+      try {
+        // 確保音訊軌道已啟用
+        resumeAudioContext();
         
-        // 設置錄音格式
+        // 檢查瀏覽器支持的 MIME 類型
         const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
           ? 'audio/webm;codecs=opus' 
           : 'audio/webm';
         
-        // 創建錄音機
+        // 創建 MediaRecorder 實例
         window.mediaRecorder = new MediaRecorder(window.microphoneStream, {
           mimeType: mimeType,
           audioBitsPerSecond: 128000
         });
         
-        // 設置數據處理
+        console.log("使用格式:", mimeType);
+        console.log("比特率設置:", 128000);
+        
+        // 設置數據可用時的回調
         window.mediaRecorder.ondataavailable = function(e) {
           if (e.data.size > 0) {
             window.audioChunks.push(e.data);
+            console.log("收到音訊數據塊，大小:", e.data.size);
           }
         };
         
-        // 開始錄音
+        // 開始錄音並每秒收集一次數據
         window.mediaRecorder.start(1000);
-        console.log("開始錄音 - 試驗 " + (currentLoop.thisN + 1));
+        console.log("開始錄音");
       } catch (error) {
-        console.error("創建錄音機時出錯:", error);
+        console.error("創建MediaRecorder時出錯:", error);
+        // 即使出錯也繼續實驗
+        setTimeout(() => continueRoutine = false, 1000);
       }
+    } else {
+      console.error("無法取得麥克風串流");
+      // 沒有麥克風也繼續實驗
+      setTimeout(() => continueRoutine = false, 1000);
     }
     
-    // 定義處理按鈕點擊的全局函數
-    // exp1_pre 程序的 Begin Routine 代碼元件中修改 handleButtonClick 函數
-    
-    window.handleButtonClick = function(buttonNumber) {
-      // 記錄數據部分保持不變
-      psychoJS.experiment.addData('response', buttonNumber);
+    // 確保我們有一個能正常工作的計時器
+    // 5秒後無論如何都繼續
+    setTimeout(function() {
+      console.log("5秒時間已到");
       
-      // 記錄當前顯示的題目
-      if (typeof exp1_pre_stimuli !== 'undefined') {
-        psychoJS.experiment.addData('current_stimulus', exp1_pre_stimuli);
-      } else {
-        psychoJS.experiment.addData('current_stimulus', 'undefined_stimulus');
-      }
-      
-      // 記錄反應時間
-      const responseTime = Date.now() - routineStartTime;
-      psychoJS.experiment.addData('rt', responseTime);
-      
-      // 停止錄音並上傳 - 這部分完全照抄 untitled.js 的邏輯
+      // 嘗試停止錄音
       try {
         if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
           window.mediaRecorder.stop();
-          
-          // 一個簡單的延遲確保錄音已完全停止
-          setTimeout(() => {
-            // 使用与 untitled.js 中完全相同的處理方式
-            if (window.audioChunks && window.audioChunks.length > 0) {
-              // 獲取 MIME 類型
-              const mimeType = window.mediaRecorder ? window.mediaRecorder.mimeType : 'audio/webm';
-              
-              // 創建音訊Blob
-              const audioBlob = new Blob(window.audioChunks, { type: mimeType });
-              window.audioBlob = audioBlob;
-              
-              // 準備文件名
-              const fileExtension = '.webm';
-              const filename = `audio_${expInfo["participant"]}_${Date.now()}${fileExtension}`;
-              
-              // 轉換為 base64
-              const reader = new FileReader();
-              reader.onloadend = function() {
-                window.audioBase64 = reader.result.split(',')[1];
-                
-                // 使用完全相同的 fetch 調用
-                fetch('https://pipe.jspsych.org/api/base64', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Accept: '*/*',
-                  },
-                  body: JSON.stringify({
-                    experimentID: 'zqejJsvNSVAI', // 確保使用正確的 ID
-                    filename: filename,
-                    data: window.audioBase64, // 使用 data 而非 data_string
-                    datatype: mimeType
-                  }),
-                })
-                .then(response => {
-                  if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                  }
-                  return response.json();
-                })
-                .then(data => {
-                  console.log('音訊上傳成功:', data);
-                })
-                .catch(error => {
-                  console.error('音訊上傳失敗:', error);
-                  console.error('錯誤詳情:', error.message);
-                });
-              };
-              
-              reader.readAsDataURL(audioBlob);
-            }
-          }, 500);
+          console.log("錄音已停止");
         }
-      } catch (error) {
-        console.error("停止錄音時出錯:", error);
+      } catch (e) {
+        console.error("停止錄音時出錯:", e);
       }
-    };
+      
+      // 記錄總錄音時間
+      window.recordingDuration = Date.now() - window.recordingStartTime;
+      console.log("錄音總時長:", window.recordingDuration, "ms");
+      
+      // 一秒後繼續實驗
+      setTimeout(() => {
+        console.log("繼續到下一個階段");
+        continueRoutine = false;
+      }, 1000);
+    }, 5000);
     // reset exp1_pre_a1 to account for continued clicks & clear times on/off
     exp1_pre_a1.reset()
     // reset exp1_pre_a2 to account for continued clicks & clear times on/off
@@ -1005,24 +998,6 @@ function exp1_preRoutineEachFrame() {
     t = exp1_preClock.getTime();
     frameN = frameN + 1;// number of completed frames (so 0 is the first frame)
     // update/draw components on each frame
-    // 檢查是否有按鈕被點擊
-    if (exp1_pre_a1.isClicked && !exp1_pre_a1.wasClicked) {
-      if (typeof window.handleButtonClick === 'function') {
-        window.handleButtonClick(1);
-      }
-    } else if (exp1_pre_a2.isClicked && !exp1_pre_a2.wasClicked) {
-      if (typeof window.handleButtonClick === 'function') {
-        window.handleButtonClick(2);
-      }
-    } else if (exp1_pre_a3.isClicked && !exp1_pre_a3.wasClicked) {
-      if (typeof window.handleButtonClick === 'function') {
-        window.handleButtonClick(3);
-      }
-    } else if (exp1_pre_a4.isClicked && !exp1_pre_a4.wasClicked) {
-      if (typeof window.handleButtonClick === 'function') {
-        window.handleButtonClick(4);
-      }
-    }
     
     // *exp1_pre_a1* updates
     if (t >= 0 && exp1_pre_a1.status === PsychoJS.Status.NOT_STARTED) {
@@ -1260,26 +1235,58 @@ function nextQRoutineBegin(snapshot) {
     t = 0;
     frameN = -1;
     continueRoutine = true; // until we're told otherwise
-    nextQClock.reset(routineTimer.getTime());
-    routineTimer.add(0.500000);
+    nextQClock.reset();
+    routineTimer.reset();
     nextQMaxDurationReached = false;
     // update component parameters for each repeat
-    // 設置一個短時間後繼續，不管上傳是否完成
-    setTimeout(() => {
-      continueRoutine = false;
-    }, 1000);
-    
-    // 如果上傳完成得更快，則立即繼續
-    if (window.lastAudioUploadPromise) {
-      window.lastAudioUploadPromise
-        .then(() => {
-          continueRoutine = false;
-        })
-        .catch(() => {
+    try {
+      // 檢查是否有錄音數據
+      if (window.audioChunks && window.audioChunks.length > 0) {
+        // 獲取 MIME 類型
+        const mimeType = window.mediaRecorder ? window.mediaRecorder.mimeType : 'audio/webm';
+        
+        // 創建音訊Blob
+        const audioBlob = new Blob(window.audioChunks, { type: mimeType });
+        window.audioBlob = audioBlob;
+        
+        console.log("錄音時長: " + (window.recordingDuration / 1000).toFixed(1) + " 秒");
+        console.log("錄音大小: " + (audioBlob.size / 1024).toFixed(1) + " KB");
+        console.log("錄音格式: " + mimeType);
+        
+        // 轉換為 base64 以便上傳
+        const reader = new FileReader();
+        reader.onloadend = function() {
+          window.audioBase64 = reader.result.split(',')[1];
+          console.log("音訊已轉換為 base64 格式，準備上傳");
+          console.log("Base64 數據長度:", window.audioBase64 ? window.audioBase64.length : 0);
+        };
+        reader.readAsDataURL(audioBlob);
+        
+        // 播放錄音
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        
+        audio.onended = function() {
+          URL.revokeObjectURL(audioUrl);
+          setTimeout(() => {
+            console.log("音訊播放結束");
+            continueRoutine = false;
+          }, 500);
+        };
+        
+        audio.play().then(() => {
+          console.log("音訊播放中");
+        }).catch(error => {
+          console.error("音訊播放失敗:", error);
           continueRoutine = false;
         });
-    } else {
-      console.warn("沒有找到 lastAudioUploadPromise");
+      } else {
+        console.log("沒有錄音數據可播放");
+        continueRoutine = false;
+      }
+    } catch (error) {
+      console.error("處理錄音時出錯:", error);
+      continueRoutine = false;
     }
     psychoJS.experiment.addData('nextQ.started', globalClock.getTime());
     nextQMaxDuration = null
@@ -1296,7 +1303,6 @@ function nextQRoutineBegin(snapshot) {
 }
 
 
-var frameRemains;
 function nextQRoutineEachFrame() {
   return async function () {
     //--- Loop for each frame of Routine 'nextQ' ---
@@ -1312,11 +1318,6 @@ function nextQRoutineEachFrame() {
       nextQ_bg.frameNStart = frameN;  // exact frame index
       
       nextQ_bg.setAutoDraw(true);
-    }
-    
-    frameRemains = 0.0 + 0.5 - psychoJS.window.monitorFramePeriod * 0.75;// most of one frame period left
-    if (nextQ_bg.status === PsychoJS.Status.STARTED && t >= frameRemains) {
-      nextQ_bg.setAutoDraw(false);
     }
     
     // check for quit (typically the Esc key)
@@ -1337,7 +1338,7 @@ function nextQRoutineEachFrame() {
     });
     
     // refresh the screen if continuing
-    if (continueRoutine && routineTimer.getTime() > 0) {
+    if (continueRoutine) {
       return Scheduler.Event.FLIP_REPEAT;
     } else {
       return Scheduler.Event.NEXT;
@@ -1355,11 +1356,112 @@ function nextQRoutineEnd(snapshot) {
       }
     });
     psychoJS.experiment.addData('nextQ.stopped', globalClock.getTime());
-    if (nextQMaxDurationReached) {
-        nextQClock.add(nextQMaxDuration);
+    // 檢查音訊數據是否存在
+    console.log("檢查音訊數據...");
+    
+    if (window.audioBlob) {
+      if (window.audioBase64) {
+        // 獲取正確的 MIME 類型
+        const mimeType = window.mediaRecorder ? window.mediaRecorder.mimeType : 'audio/webm';
+        
+        console.log("上傳音訊檔案...");
+        console.log("MIME 類型:", mimeType);
+        
+        // 使用正確的檔案擴展名
+        const fileExtension = '.webm';
+        const filename = `audio_${expInfo["participant"]}_${Date.now()}${fileExtension}`;
+        
+        // !!關鍵修改!! - 使用正確的端點 /api/base64 而不是 /api/data
+        fetch('https://pipe.jspsych.org/api/base64', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: '*/*',
+          },
+          body: JSON.stringify({
+            experimentID: 'zqejJsvNSVAI', // 您的 DataPipe ID
+            filename: filename,
+            data: window.audioBase64,
+            datatype: mimeType
+          }),
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('音訊上傳成功:', data);
+          setTimeout(() => {
+            continueRoutine = false;
+          }, 1000);
+        })
+        .catch(error => {
+          console.error('音訊上傳失敗:', error);
+          console.error('錯誤詳情:', error.message);
+          setTimeout(() => {
+            continueRoutine = false;
+          }, 1000);
+        });
+      } else {
+        console.log("等待 base64 轉換完成...");
+        // 重試轉換
+        const reader = new FileReader();
+        reader.onloadend = function() {
+          window.audioBase64 = reader.result.split(',')[1];
+          console.log("base64 轉換完成，準備重新上傳");
+          
+          // 獲取正確的 MIME 類型
+          const mimeType = window.mediaRecorder ? window.mediaRecorder.mimeType : 'audio/webm';
+          const fileExtension = '.webm';
+          const filename = `audio_${expInfo["participant"]}_${Date.now()}${fileExtension}`;
+          
+          // !!關鍵修改!! - 使用正確的端點 /api/base64
+          fetch('https://pipe.jspsych.org/api/base64', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: '*/*',
+            },
+            body: JSON.stringify({
+              experimentID: 'zqejJsvNSVAI',
+              filename: filename,
+              data: window.audioBase64,
+              datatype: mimeType
+            }),
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            console.log('音訊上傳成功:', data);
+            setTimeout(() => {
+              continueRoutine = false;
+            }, 1000);
+          })
+          .catch(error => {
+            console.error('音訊上傳失敗:', error);
+            console.error('錯誤詳情:', error.message);
+            setTimeout(() => {
+              continueRoutine = false;
+            }, 1000);
+          });
+        };
+        reader.readAsDataURL(window.audioBlob);
+      }
     } else {
-        nextQClock.add(0.500000);
+      console.log("沒有音訊數據需要保存");
+      setTimeout(() => {
+        continueRoutine = false;
+      }, 1000);
     }
+    // the Routine "nextQ" was not non-slip safe, so reset the non-slip timer
+    routineTimer.reset();
+    
     // Routines running outside a loop should always advance the datafile row
     if (currentLoop === psychoJS.experiment) {
       psychoJS.experiment.nextEntry(snapshot);
