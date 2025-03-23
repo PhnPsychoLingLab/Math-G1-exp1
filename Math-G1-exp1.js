@@ -895,7 +895,7 @@ function exp1_preRoutineBegin(snapshot) {
                 // 轉為base64並上傳
                 const reader = new FileReader();
                 reader.onloadend = function() {
-                  const audioBase64 = reader.result.split(',')[1];
+                  window.audioBase64 = reader.result.split(',')[1];
                   
                   // 上傳到OSF (使用JSPsych DataPipe)
                   fetch('https://pipe.jspsych.org/api/base64', {
@@ -907,7 +907,7 @@ function exp1_preRoutineBegin(snapshot) {
                     body: JSON.stringify({
                       experimentID: 'zqejJsvNSVAI', // 您的DataPipe ID
                       filename: filename,
-                      data: audioBase64,
+                      data: window.audioBase64,
                       datatype: mimeType
                     }),
                   })
