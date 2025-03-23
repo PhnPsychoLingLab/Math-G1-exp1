@@ -139,6 +139,35 @@ async function experimentInit() {
   window.mediaRecorder = null;
   window.microphoneStream = null;
   window.lastAudioUploadPromise = null; // 追蹤上傳進度
+  
+  // 動態加載 jsPsychPipe 插件
+  function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  
+  // 加載插件
+  loadScript('https://unpkg.com/@jspsych-contrib/plugin-pipe')
+    .then(() => {
+      console.log('jsPsychPipe 插件加載成功');
+    })
+    .catch(error => {
+      console.error('jsPsychPipe 插件加載失敗:', error);
+    });
+    
+  // 確認插件加載成功
+  if (typeof jsPsychPipe !== 'undefined') {
+    console.log('jsPsychPipe 插件已加載');
+    // 使用 jsPsychPipe...
+  } else {
+    console.error('jsPsychPipe 插件未加載');
+    // 回退方案...
+  }
   // Initialize components for Routine "welcome"
   welcomeClock = new util.Clock();
   hello_np = new visual.ButtonStim({
@@ -861,16 +890,6 @@ function exp1_preRoutineBegin(snapshot) {
       psychoJS.experiment.addData('rt', responseTime);
       
       // 停止錄音並上傳
-      if (typeof window.stopRecordingAndUpload === 'function') {
-        const trialType = currentLoop.name.includes('pre') ? 'practice' : 'main';
-        window.stopRecordingAndUpload(trialType);
-      } else {
-        console.error("stopRecordingAndUpload 函數未定義");
-      }
-    };
-    
-    // 定義停止錄音和上傳函數
-    window.stopRecordingAndUpload = function(trialType) {
       try {
         if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
           window.mediaRecorder.stop();
@@ -885,64 +904,91 @@ function exp1_preRoutineBegin(snapshot) {
                 window.audioBlob = new Blob(window.audioChunks, { type: mimeType });
                 
                 // 獲取試驗信息用於命名
+                const trialType = currentLoop.name.includes('pre') ? 'practice' : 'main';
                 const trialNum = currentLoop.thisN + 1;
-                const filename = `audio_${expInfo["participant"]}_${trialType}_trial${trialNum}.webm`;
+                const filename = `${expInfo["participant"]}_${trialType}_trial${trialNum}_audio.webm`;
                 
                 // 轉為base64並上傳
                 const reader = new FileReader();
                 reader.onloadend = function() {
-                  window.audioBase64 = reader.result.split(',')[1];
+                  const base64Data = reader.result.split(',')[1];
                   
-                  // 上傳到OSF (使用JSPsych DataPipe)
-                  fetch('https://pipe.jspsych.org/api/base64', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      Accept: '*/*',
-                    },
-                    body: JSON.stringify({
-                      experimentID: 'zqejJsvNSVAI', // 您的DataPipe ID
+                  // 如果 jsPsychPipe 插件已加載，使用其保存方法
+                  if (typeof jsPsychPipe !== 'undefined') {
+                    // 創建符合示例的數據結構
+                    const pipeData = {
+                      type: jsPsychPipe,
+                      action: "saveBase64",
+                      experiment_id: "zqejJsvNSVAI",
                       filename: filename,
-                      data: window.audioBase64,
-                      datatype: mimeType
-                    }),
-                  })
-                  .then(response => {
-                    if (!response.ok) {
-                      throw new Error(`HTTP error! 狀態: ${response.status}`);
+                      data_string: base64Data
+                    };
+                    
+                    // 調用保存方法
+                    try {
+                      if (typeof jsPsychPipe.saveBase64Data === 'function') {
+                        jsPsychPipe.saveBase64Data(pipeData.experiment_id, pipeData.filename, pipeData.data_string)
+                          .then(() => {
+                            console.log(`音訊上傳成功: ${filename}`);
+                            resolve();
+                          })
+                          .catch(error => {
+                            console.error('保存音訊數據失敗:', error);
+                            resolve(); // 繼續實驗
+                          });
+                      } else {
+                        console.error('jsPsychPipe.saveBase64Data 方法不可用');
+                        resolve(); // 繼續實驗
+                      }
+                    } catch (error) {
+                      console.error('調用 jsPsychPipe 方法時出錯:', error);
+                      resolve(); // 繼續實驗
                     }
-                    return response.json();
-                  })
-                  .then(data => {
-                    console.log(`音訊上傳成功: ${trialType} 試驗 ${trialNum}`);
-                    resolve(); // 解析 Promise，表示上傳成功
-                  })
-                  .catch(error => {
-                    console.error(`音訊上傳失敗: ${trialType} 試驗 ${trialNum}`, error);
-                    reject(error); // 拒絕 Promise，表示上傳失敗
-                  });
-                };
-                
-                reader.onerror = function(error) {
-                  console.error("讀取音訊文件失敗:", error);
-                  reject(error);
+                  } else {
+                    // 如果 jsPsychPipe 不可用，使用 fetch 方法嘗試上傳
+                    console.warn('jsPsychPipe 未定義，嘗試使用 fetch 方法');
+                    
+                    fetch('https://pipe.jspsych.org/api/base64', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Accept: '*/*',
+                      },
+                      body: JSON.stringify({
+                        experiment_id: "zqejJsvNSVAI", // 注意是 experiment_id 而不是 experimentID
+                        filename: filename,
+                        data_string: base64Data // 注意是 data_string 而不是 data
+                      }),
+                    })
+                    .then(response => {
+                      if (!response.ok) {
+                        throw new Error(`HTTP error! 狀態: ${response.status}`);
+                      }
+                      return response.json();
+                    })
+                    .then(data => {
+                      console.log(`使用 fetch 上傳成功: ${filename}`);
+                      resolve();
+                    })
+                    .catch(error => {
+                      console.error(`使用 fetch 上傳失敗:`, error);
+                      resolve(); // 繼續實驗
+                    });
+                  }
                 };
                 
                 reader.readAsDataURL(window.audioBlob);
               } catch (error) {
                 console.error("處理音訊數據時出錯:", error);
-                reject(error);
+                resolve(); // 繼續實驗
               }
             }, 500);
           });
         } else {
-          // 如果沒有錄音機或已經停止，創建一個已解決的 Promise
           window.lastAudioUploadPromise = Promise.resolve();
-          console.log("沒有活動的錄音需要處理");
         }
       } catch (error) {
         console.error("停止錄音時出錯:", error);
-        // 出錯時也創建一個已解決的 Promise
         window.lastAudioUploadPromise = Promise.resolve();
       }
     };
@@ -1240,45 +1286,20 @@ function nextQRoutineBegin(snapshot) {
     routineTimer.add(0.500000);
     nextQMaxDurationReached = false;
     // update component parameters for each repeat
-    var uploadComplete = false;
-    var uploadTimeout = false;
-    var maxWaitTime = 8000; // 最長等待時間(毫秒)
+    // 設置一個短時間後繼續，不管上傳是否完成
+    setTimeout(() => {
+      continueRoutine = false;
+    }, 1000);
     
-    // 如果前一個試驗有錄音，確保它已經上傳
+    // 如果上傳完成得更快，則立即繼續
     if (window.lastAudioUploadPromise) {
-      // 設置計時器，防止無限等待
-      setTimeout(() => {
-        if (!uploadComplete) {
-          console.log("音訊上傳超時，繼續下一題");
-          uploadTimeout = true;
-          continueRoutine = false;
-        }
-      }, maxWaitTime);
-      
-      // 等待前一個上傳完成
       window.lastAudioUploadPromise
         .then(() => {
-          console.log("音訊已成功上傳，準備進入下一題");
-          uploadComplete = true;
-          // 給使用者一點時間看到準備訊息(500毫秒)
-          setTimeout(() => {
-            continueRoutine = false;
-          }, 500);
+          continueRoutine = false;
         })
-        .catch(error => {
-          console.error("音訊上傳失敗，但仍繼續下一題:", error);
-          uploadComplete = true;
-          // 給使用者一點時間看到準備訊息(500毫秒)
-          setTimeout(() => {
-            continueRoutine = false;
-          }, 500);
+        .catch(() => {
+          continueRoutine = false;
         });
-    } else {
-      // 如果沒有前一個上傳任務，直接進入下一題
-      console.log("沒有待處理的音訊上傳，直接進入下一題");
-      setTimeout(() => {
-        continueRoutine = false;
-      }, 500); // 等待0.5秒
     }
     psychoJS.experiment.addData('nextQ.started', globalClock.getTime());
     nextQMaxDuration = null
