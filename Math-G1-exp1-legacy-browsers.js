@@ -848,7 +848,28 @@ function exp1_preRoutineBegin(snapshot) {
       }
     }
     
-    // 定義停止錄音和上傳函數 (在此處定義，使其對 Each Frame 部分可見)
+    // 定義處理按鈕點擊的全局函數
+    window.handleButtonClick = function(buttonNumber) {
+      // 記錄額外的數據
+      psychoJS.experiment.addData('response', buttonNumber);
+      
+      // 記錄當前顯示的題目
+      psychoJS.experiment.addData('current_stimulus', exp1_pre_stimuli);
+      
+      // 記錄反應時間
+      const responseTime = Date.now() - routineStartTime;
+      psychoJS.experiment.addData('rt', responseTime);
+      
+      // 停止錄音並上傳
+      if (typeof window.stopRecordingAndUpload === 'function') {
+        const trialType = currentLoop.name.includes('pre') ? 'practice' : 'main';
+        window.stopRecordingAndUpload(trialType);
+      } else {
+        console.error("stopRecordingAndUpload 函數未定義");
+      }
+    };
+    
+    // 定義停止錄音和上傳函數
     window.stopRecordingAndUpload = function(trialType) {
       try {
         if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
@@ -962,33 +983,21 @@ function exp1_preRoutineEachFrame() {
     // update/draw components on each frame
     // 檢查是否有按鈕被點擊
     if (exp1_pre_a1.isClicked && !exp1_pre_a1.wasClicked) {
-      handleButtonClick(1);
+      if (typeof window.handleButtonClick === 'function') {
+        window.handleButtonClick(1);
+      }
     } else if (exp1_pre_a2.isClicked && !exp1_pre_a2.wasClicked) {
-      handleButtonClick(2);
+      if (typeof window.handleButtonClick === 'function') {
+        window.handleButtonClick(2);
+      }
     } else if (exp1_pre_a3.isClicked && !exp1_pre_a3.wasClicked) {
-      handleButtonClick(3);
+      if (typeof window.handleButtonClick === 'function') {
+        window.handleButtonClick(3);
+      }
     } else if (exp1_pre_a4.isClicked && !exp1_pre_a4.wasClicked) {
-      handleButtonClick(4);
-    }
-    
-    // 處理按鈕點擊函數
-    function handleButtonClick(buttonNumber) {
-      // 記錄額外的數據
-      psychoJS.experiment.addData('response', buttonNumber);
-      
-      // 記錄當前顯示的題目
-      psychoJS.experiment.addData('current_stimulus', exp1_pre_stimuli);
-      
-      // 記錄反應時間
-      const responseTime = Date.now() - routineStartTime;
-      psychoJS.experiment.addData('rt', responseTime);
-      
-      // 使用全局函數停止錄音並上傳
-      window.stopRecordingAndUpload(currentLoop.name.includes('pre') ? 'practice' : 'main');
-      
-      // 不需要手動終止試驗，因為按鈕元件已設置為點擊後自動結束試驗
-      // 如果您的按鈕沒有設置為自動結束試驗，請取消下面一行的註釋
-      // continueRoutine = false;
+      if (typeof window.handleButtonClick === 'function') {
+        window.handleButtonClick(4);
+      }
     }
     
     // *exp1_pre_bg* updates
