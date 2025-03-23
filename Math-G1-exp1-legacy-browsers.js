@@ -134,45 +134,11 @@ var routineTimer;
 async function experimentInit() {
   // Initialize components for Routine "loading"
   loadingClock = new util.Clock();
-  // Begin Experiment 部分
   // 全局變數初始化
   window.audioChunks = [];
   window.mediaRecorder = null;
   window.microphoneStream = null;
   window.lastAudioUploadPromise = null; // 追蹤上傳進度
-  
-  // Begin Routine 部分
-  // 請求麥克風權限
-  console.log("檢查麥克風權限狀態...");
-  
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      .then(stream => {
-        console.log("麥克風權限已授予");
-        window.microphoneStream = stream;
-        
-        // 權限獲取後可以繼續
-        setTimeout(() => {
-          continueRoutine = false;
-        }, 2000);
-      })
-      .catch(error => {
-        console.error("麥克風權限錯誤:", error);
-        // 即使出錯也繼續
-        setTimeout(() => {
-          continueRoutine = false;
-        }, 2000);
-      });
-  } else {
-    console.error("瀏覽器不支持 getUserMedia");
-    // 不支持也繼續實驗
-    setTimeout(() => {
-      continueRoutine = false;
-    }, 2000);
-  }
-  
-  // 直接請求麥克風權限
-  requestMicrophoneAccess();
   // Initialize components for Routine "welcome"
   welcomeClock = new util.Clock();
   hello_np = new visual.ButtonStim({
@@ -220,7 +186,7 @@ async function experimentInit() {
     size: [0.55, 0.08],
     ori: 0.0
     ,
-    depth: -1
+    depth: 0
   });
   exp1_intro_np.clock = new util.Clock();
   
@@ -235,7 +201,7 @@ async function experimentInit() {
     size : [1.344, 0.756],
     color : new util.Color([1,1,1]), opacity : undefined,
     flipHoriz : false, flipVert : false,
-    texRes : 128.0, interpolate : true, depth : -2.0 
+    texRes : 128.0, interpolate : true, depth : -1.0 
   });
   // Initialize components for Routine "exp1_pre"
   exp1_preClock = new util.Clock();
@@ -348,7 +314,7 @@ async function experimentInit() {
     size : [1.344, 0.756],
     color : new util.Color([1,1,1]), opacity : undefined,
     flipHoriz : false, flipVert : false,
-    texRes : 128.0, interpolate : true, depth : 0.0 
+    texRes : 128.0, interpolate : true, depth : -1.0 
   });
   // Create some handy timers
   globalClock = new util.Clock();  // to track the time since experiment started
@@ -376,6 +342,38 @@ function loadingRoutineBegin(snapshot) {
     routineTimer.reset();
     loadingMaxDurationReached = false;
     // update component parameters for each repeat
+    // 請求麥克風權限函數
+    function requestMicrophoneAccess() {
+      console.log("請求麥克風權限...");
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+          .then(stream => {
+            console.log("麥克風權限已授予");
+            window.microphoneStream = stream;
+            
+            // 權限獲取後可以繼續
+            setTimeout(() => {
+              continueRoutine = false;
+            }, 2000);
+          })
+          .catch(error => {
+            console.error("麥克風權限錯誤:", error);
+            // 即使出錯也繼續
+            setTimeout(() => {
+              continueRoutine = false;
+            }, 2000);
+          });
+      } else {
+        console.error("瀏覽器不支持 getUserMedia");
+        // 不支持也繼續實驗
+        setTimeout(() => {
+          continueRoutine = false;
+        }, 2000);
+      }
+    }
+    
+    // 直接請求麥克風權限
+    requestMicrophoneAccess();
     psychoJS.experiment.addData('loading.started', globalClock.getTime());
     loadingMaxDuration = null
     // keep track of which components have finished
@@ -600,8 +598,6 @@ function introRoutineBegin(snapshot) {
     routineTimer.reset();
     introMaxDurationReached = false;
     // update component parameters for each repeat
-    // Begin Routine 部分
-    exp1_intro_np.setAutoDraw(true);
     // reset exp1_intro_np to account for continued clicks & clear times on/off
     exp1_intro_np.reset()
     psychoJS.experiment.addData('intro.started', globalClock.getTime());
@@ -627,10 +623,6 @@ function introRoutineEachFrame() {
     t = introClock.getTime();
     frameN = frameN + 1;// number of completed frames (so 0 is the first frame)
     // update/draw components on each frame
-    // Each Frame 部分 (檢測按鈕點擊)
-    if (mouse.isPressedIn(exp1_intro_np)) {
-      continueRoutine = false;
-    }
     
     // *exp1_intro_np* updates
     if (t >= 0 && exp1_intro_np.status === PsychoJS.Status.NOT_STARTED) {
@@ -814,7 +806,6 @@ function exp1_preRoutineBegin(snapshot) {
     routineTimer.reset();
     exp1_preMaxDurationReached = false;
     // update component parameters for each repeat
-    // Begin Routine 部分
     // 記錄開始時間
     routineStartTime = Date.now();
     
@@ -851,7 +842,7 @@ function exp1_preRoutineBegin(snapshot) {
         
         // 開始錄音
         window.mediaRecorder.start(1000);
-        console.log("開始錄音 - 練習試驗 " + (currentLoop.thisN + 1));
+        console.log("開始錄音 - 試驗 " + (currentLoop.thisN + 1));
       } catch (error) {
         console.error("創建錄音機時出錯:", error);
       }
@@ -891,16 +882,14 @@ function exp1_preRoutineEachFrame() {
     t = exp1_preClock.getTime();
     frameN = frameN + 1;// number of completed frames (so 0 is the first frame)
     // update/draw components on each frame
-    
-    // Each Frame 部分 (檢測按鈕點擊)
     // 檢查每個按鈕是否被點擊
-    if (mouse.isPressedIn(exp1_pre_a1)) {
+    if (exp1_pre_a1.isClicked) {
       recordResponse(1);
-    } else if (mouse.isPressedIn(exp1_pre_a2)) {
+    } else if (exp1_pre_a2.isClicked) {
       recordResponse(2);
-    } else if (mouse.isPressedIn(exp1_pre_a3)) {
+    } else if (exp1_pre_a3.isClicked) {
       recordResponse(3);
-    } else if (mouse.isPressedIn(exp1_pre_a4)) {
+    } else if (exp1_pre_a4.isClicked) {
       recordResponse(4);
     }
     
@@ -1125,7 +1114,6 @@ function exp1_preRoutineEnd(snapshot) {
       }
     });
     psychoJS.experiment.addData('exp1_pre.stopped', globalClock.getTime());
-    // End Routine 部分
     // 定義停止錄音和上傳函數
     function stopRecordingAndUpload(trialType) {
       try {
@@ -1242,7 +1230,6 @@ function nextQRoutineBegin(snapshot) {
     routineTimer.add(0.500000);
     nextQMaxDurationReached = false;
     // update component parameters for each repeat
-    // Begin Routine 部分
     var uploadComplete = false;
     var uploadTimeout = false;
     var maxWaitTime = 8000; // 最長等待時間(毫秒)
@@ -1386,7 +1373,6 @@ function endRoutineBegin(snapshot) {
     routineTimer.reset();
     endMaxDurationReached = false;
     // update component parameters for each repeat
-    // Begin Routine 部分
     // 確保清理所有音訊資源
     if (window.microphoneStream) {
       window.microphoneStream.getTracks().forEach(track => {
