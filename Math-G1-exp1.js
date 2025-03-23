@@ -895,8 +895,10 @@ function exp1_preRoutineBegin(snapshot) {
     }
     
     // 定義處理按鈕點擊的全局函數
+    // exp1_pre 程序的 Begin Routine 代碼元件中修改 handleButtonClick 函數
+    
     window.handleButtonClick = function(buttonNumber) {
-      // 記錄額外的數據
+      // 記錄數據部分保持不變
       psychoJS.experiment.addData('response', buttonNumber);
       
       // 記錄當前顯示的題目
@@ -910,75 +912,66 @@ function exp1_preRoutineBegin(snapshot) {
       const responseTime = Date.now() - routineStartTime;
       psychoJS.experiment.addData('rt', responseTime);
       
-      // 停止錄音並上傳
+      // 停止錄音並上傳 - 這部分完全照抄 untitled.js 的邏輯
       try {
         if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
           window.mediaRecorder.stop();
           
-          // 創建一個 Promise 並將其儲存在全局變數中
-          window.lastAudioUploadPromise = new Promise((resolve, reject) => {
-            // 延遲處理以確保所有數據塊都被收集
-            setTimeout(() => {
-              try {
-                // 創建音訊Blob
-                const mimeType = window.mediaRecorder ? window.mediaRecorder.mimeType : 'audio/webm';
-                window.audioBlob = new Blob(window.audioChunks, { type: mimeType });
+          // 一個簡單的延遲確保錄音已完全停止
+          setTimeout(() => {
+            // 使用与 untitled.js 中完全相同的處理方式
+            if (window.audioChunks && window.audioChunks.length > 0) {
+              // 獲取 MIME 類型
+              const mimeType = window.mediaRecorder ? window.mediaRecorder.mimeType : 'audio/webm';
+              
+              // 創建音訊Blob
+              const audioBlob = new Blob(window.audioChunks, { type: mimeType });
+              window.audioBlob = audioBlob;
+              
+              // 準備文件名
+              const fileExtension = '.webm';
+              const filename = `audio_${expInfo["participant"]}_${Date.now()}${fileExtension}`;
+              
+              // 轉換為 base64
+              const reader = new FileReader();
+              reader.onloadend = function() {
+                window.audioBase64 = reader.result.split(',')[1];
                 
-                // 獲取試驗信息用於命名
-                const trialType = currentLoop.name.includes('pre') ? 'practice' : 'main';
-                const trialNum = currentLoop.thisN + 1;
-                const filename = `${expInfo["participant"]}_${trialType}_trial${trialNum}_audio.webm`;
-                
-                // 轉為base64並上傳
-                const reader = new FileReader();
-                reader.onloadend = function() {
-                  const base64Data = reader.result.split(',')[1];
-                  
-                  // 使用 fetch 方法直接上傳
-                  console.warn('使用 fetch 方法上傳音訊數據');
-                  
-                  fetch('https://pipe.jspsych.org/api/base64', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      Accept: '*/*',
-                    },
-                    body: JSON.stringify({
-                      experimentID: "zqejJsvNSVAI", // 修正：使用 experimentID 而非 experiment_id
-                      filename: filename,
-                      data: base64Data, // 修正：使用 data 而非 data_string
-                      datatype: mimeType // 添加 datatype 參數
-                    }),
-                  })
-                  .then(response => {
-                    if (!response.ok) {
-                      throw new Error(`HTTP error! 狀態: ${response.status}`);
-                    }
-                    return response.json();
-                  })
-                  .then(data => {
-                    console.log(`使用 fetch 上傳成功: ${filename}`);
-                    resolve();
-                  })
-                  .catch(error => {
-                    console.error(`使用 fetch 上傳失敗:`, error);
-                    resolve(); // 即使失敗也繼續實驗
-                  });
-                };
-                
-                reader.readAsDataURL(window.audioBlob);
-              } catch (error) {
-                console.error("處理音訊數據時出錯:", error);
-                resolve(); // 繼續實驗
-              }
-            }, 500);
-          });
-        } else {
-          window.lastAudioUploadPromise = Promise.resolve();
+                // 使用完全相同的 fetch 調用
+                fetch('https://pipe.jspsych.org/api/base64', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Accept: '*/*',
+                  },
+                  body: JSON.stringify({
+                    experimentID: 'zqejJsvNSVAI', // 確保使用正確的 ID
+                    filename: filename,
+                    data: window.audioBase64, // 使用 data 而非 data_string
+                    datatype: mimeType
+                  }),
+                })
+                .then(response => {
+                  if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                  }
+                  return response.json();
+                })
+                .then(data => {
+                  console.log('音訊上傳成功:', data);
+                })
+                .catch(error => {
+                  console.error('音訊上傳失敗:', error);
+                  console.error('錯誤詳情:', error.message);
+                });
+              };
+              
+              reader.readAsDataURL(audioBlob);
+            }
+          }, 500);
         }
       } catch (error) {
         console.error("停止錄音時出錯:", error);
-        window.lastAudioUploadPromise = Promise.resolve();
       }
     };
     // reset exp1_pre_a1 to account for continued clicks & clear times on/off
