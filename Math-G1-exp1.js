@@ -942,31 +942,18 @@ function exp1_preRoutineBegin(snapshot) {
       setTimeout(() => continueRoutine = false, 1000);
     }
     
-    // 確保我們有一個能正常工作的計時器
-    // 5秒後無論如何都繼續
-    setTimeout(function() {
-      console.log("5秒時間已到");
-      
-      // 嘗試停止錄音
+    // 當按鈕被點擊時，停止錄音
+    if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
       try {
-        if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
-          window.mediaRecorder.stop();
-          console.log("錄音已停止");
-        }
+        window.mediaRecorder.stop();
+        console.log("按鈕點擊後錄音已停止");
+        // 記錄總錄音時長
+        window.recordingDuration = Date.now() - window.recordingStartTime;
+        console.log("錄音總時長:", window.recordingDuration, "ms");
       } catch (e) {
         console.error("停止錄音時出錯:", e);
       }
-      
-      // 記錄總錄音時間
-      window.recordingDuration = Date.now() - window.recordingStartTime;
-      console.log("錄音總時長:", window.recordingDuration, "ms");
-      
-      // 一秒後繼續實驗
-      setTimeout(() => {
-        console.log("繼續到下一個階段");
-        continueRoutine = false;
-      }, 1000);
-    }, 5000);
+    }
     // reset exp1_pre_a1 to account for continued clicks & clear times on/off
     exp1_pre_a1.reset()
     // reset exp1_pre_a2 to account for continued clicks & clear times on/off
