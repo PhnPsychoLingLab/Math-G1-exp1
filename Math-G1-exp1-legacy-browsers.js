@@ -371,6 +371,12 @@ function loadingRoutineBegin(snapshot) {
     routineTimer.reset();
     loadingMaxDurationReached = false;
     // update component parameters for each repeat
+    // 全局變數初始化
+    window.audioChunks = [];
+    window.mediaRecorder = null;
+    window.microphoneStream = null;
+    window.lastAudioUploadPromise = null; // 追蹤上傳進度
+    
     // 請求麥克風權限函數
     function requestMicrophoneAccess() {
       console.log("請求麥克風權限...");
@@ -821,6 +827,7 @@ function exp1_pre_trialsLoopEndIteration(scheduler, snapshot) {
 
 var exp1_preMaxDurationReached;
 var routineStartTime;
+var exp1_pre_stimuli;
 var exp1_preMaxDuration;
 var exp1_preComponents;
 function exp1_preRoutineBegin(snapshot) {
@@ -837,6 +844,12 @@ function exp1_preRoutineBegin(snapshot) {
     // update component parameters for each repeat
     // 記錄開始時間
     routineStartTime = Date.now();
+    
+    // 檢查 stimuli 變數是否存在
+    if (typeof exp1_pre_stimuli === 'undefined') {
+      console.warn('exp1_pre_stimuli 未定義，使用默認圖片');
+      exp1_pre_stimuli = './exp1_pre/G1_exp1_pre1.png'; // 使用默認圖像
+    }
     
     // 開始錄音
     window.audioChunks = [];
@@ -883,7 +896,11 @@ function exp1_preRoutineBegin(snapshot) {
       psychoJS.experiment.addData('response', buttonNumber);
       
       // 記錄當前顯示的題目
-      psychoJS.experiment.addData('current_stimulus', exp1_pre_stimuli);
+      if (typeof exp1_pre_stimuli !== 'undefined') {
+        psychoJS.experiment.addData('current_stimulus', exp1_pre_stimuli);
+      } else {
+        psychoJS.experiment.addData('current_stimulus', 'undefined_stimulus');
+      }
       
       // 記錄反應時間
       const responseTime = Date.now() - routineStartTime;
@@ -913,68 +930,36 @@ function exp1_preRoutineBegin(snapshot) {
                 reader.onloadend = function() {
                   const base64Data = reader.result.split(',')[1];
                   
-                  // 如果 jsPsychPipe 插件已加載，使用其保存方法
-                  if (typeof jsPsychPipe !== 'undefined') {
-                    // 創建符合示例的數據結構
-                    const pipeData = {
-                      type: jsPsychPipe,
-                      action: "saveBase64",
-                      experiment_id: "zqejJsvNSVAI",
+                  // 使用 fetch 方法直接上傳
+                  console.warn('使用 fetch 方法上傳音訊數據');
+                  
+                  fetch('https://pipe.jspsych.org/api/base64', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Accept: '*/*',
+                    },
+                    body: JSON.stringify({
+                      experimentID: "zqejJsvNSVAI", // 修正：使用 experimentID 而非 experiment_id
                       filename: filename,
-                      data_string: base64Data
-                    };
-                    
-                    // 調用保存方法
-                    try {
-                      if (typeof jsPsychPipe.saveBase64Data === 'function') {
-                        jsPsychPipe.saveBase64Data(pipeData.experiment_id, pipeData.filename, pipeData.data_string)
-                          .then(() => {
-                            console.log(`音訊上傳成功: ${filename}`);
-                            resolve();
-                          })
-                          .catch(error => {
-                            console.error('保存音訊數據失敗:', error);
-                            resolve(); // 繼續實驗
-                          });
-                      } else {
-                        console.error('jsPsychPipe.saveBase64Data 方法不可用');
-                        resolve(); // 繼續實驗
-                      }
-                    } catch (error) {
-                      console.error('調用 jsPsychPipe 方法時出錯:', error);
-                      resolve(); // 繼續實驗
+                      data: base64Data, // 修正：使用 data 而非 data_string
+                      datatype: mimeType // 添加 datatype 參數
+                    }),
+                  })
+                  .then(response => {
+                    if (!response.ok) {
+                      throw new Error(`HTTP error! 狀態: ${response.status}`);
                     }
-                  } else {
-                    // 如果 jsPsychPipe 不可用，使用 fetch 方法嘗試上傳
-                    console.warn('jsPsychPipe 未定義，嘗試使用 fetch 方法');
-                    
-                    fetch('https://pipe.jspsych.org/api/base64', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        Accept: '*/*',
-                      },
-                      body: JSON.stringify({
-                        experimentID: "zqejJsvNSVAI",
-                        filename: filename,
-                        data: base64Data
-                      }),
-                    })
-                    .then(response => {
-                      if (!response.ok) {
-                        throw new Error(`HTTP error! 狀態: ${response.status}`);
-                      }
-                      return response.json();
-                    })
-                    .then(data => {
-                      console.log(`使用 fetch 上傳成功: ${filename}`);
-                      resolve();
-                    })
-                    .catch(error => {
-                      console.error(`使用 fetch 上傳失敗:`, error);
-                      resolve(); // 繼續實驗
-                    });
-                  }
+                    return response.json();
+                  })
+                  .then(data => {
+                    console.log(`使用 fetch 上傳成功: ${filename}`);
+                    resolve();
+                  })
+                  .catch(error => {
+                    console.error(`使用 fetch 上傳失敗:`, error);
+                    resolve(); // 即使失敗也繼續實驗
+                  });
                 };
                 
                 reader.readAsDataURL(window.audioBlob);
@@ -1300,6 +1285,8 @@ function nextQRoutineBegin(snapshot) {
         .catch(() => {
           continueRoutine = false;
         });
+    } else {
+      console.warn("沒有找到 lastAudioUploadPromise");
     }
     psychoJS.experiment.addData('nextQ.started', globalClock.getTime());
     nextQMaxDuration = null
