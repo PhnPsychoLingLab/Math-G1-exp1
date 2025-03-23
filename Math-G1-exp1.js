@@ -128,11 +128,11 @@ var introClock;
 var exp1_intro_np;
 var exp1_intro_bg;
 var exp1_preClock;
-var exp1_pre_bg;
 var exp1_pre_a1;
 var exp1_pre_a2;
 var exp1_pre_a3;
 var exp1_pre_a4;
+var exp1_pre_bg;
 var nextQClock;
 var nextQ_bg;
 var endClock;
@@ -242,19 +242,6 @@ async function experimentInit() {
   });
   // Initialize components for Routine "exp1_pre"
   exp1_preClock = new util.Clock();
-  exp1_pre_bg = new visual.ImageStim({
-    win : psychoJS.window,
-    name : 'exp1_pre_bg', units : undefined, 
-    image : 'default.png', mask : undefined,
-    anchor : 'center',
-    ori : 0.0, 
-    pos : [0, 0], 
-    draggable: false,
-    size : [1.344, 0.756],
-    color : new util.Color([1,1,1]), opacity : undefined,
-    flipHoriz : false, flipVert : false,
-    texRes : 128.0, interpolate : true, depth : -1.0 
-  });
   exp1_pre_a1 = new visual.ButtonStim({
     win: psychoJS.window,
     name: 'exp1_pre_a1',
@@ -268,7 +255,7 @@ async function experimentInit() {
     size: [0.25, 0.08],
     ori: 0.0
     ,
-    depth: -2
+    depth: -1
   });
   exp1_pre_a1.clock = new util.Clock();
   
@@ -285,7 +272,7 @@ async function experimentInit() {
     size: [0.25, 0.08],
     ori: 0.0
     ,
-    depth: -3
+    depth: -2
   });
   exp1_pre_a2.clock = new util.Clock();
   
@@ -302,7 +289,7 @@ async function experimentInit() {
     size: [0.25, 0.08],
     ori: 0.0
     ,
-    depth: -4
+    depth: -3
   });
   exp1_pre_a3.clock = new util.Clock();
   
@@ -319,10 +306,23 @@ async function experimentInit() {
     size: [0.25, 0.08],
     ori: 0.0
     ,
-    depth: -5
+    depth: -4
   });
   exp1_pre_a4.clock = new util.Clock();
   
+  exp1_pre_bg = new visual.ImageStim({
+    win : psychoJS.window,
+    name : 'exp1_pre_bg', units : undefined, 
+    image : 'default.png', mask : undefined,
+    anchor : 'center',
+    ori : 0.0, 
+    pos : [0, 0], 
+    draggable: false,
+    size : [1.344, 0.756],
+    color : new util.Color([1,1,1]), opacity : undefined,
+    flipHoriz : false, flipVert : false,
+    texRes : 128.0, interpolate : true, depth : -5.0 
+  });
   // Initialize components for Routine "nextQ"
   nextQClock = new util.Clock();
   nextQ_bg = new visual.ImageStim({
@@ -959,9 +959,9 @@ function exp1_preRoutineBegin(snapshot) {
                         Accept: '*/*',
                       },
                       body: JSON.stringify({
-                        experiment_id: "zqejJsvNSVAI", // 注意是 experiment_id 而不是 experimentID
+                        experimentID: "zqejJsvNSVAI",
                         filename: filename,
-                        data_string: base64Data // 注意是 data_string 而不是 data
+                        data: base64Data
                       }),
                     })
                     .then(response => {
@@ -996,7 +996,6 @@ function exp1_preRoutineBegin(snapshot) {
         window.lastAudioUploadPromise = Promise.resolve();
       }
     };
-    exp1_pre_bg.setImage(exp1_pre_stimuli);
     // reset exp1_pre_a1 to account for continued clicks & clear times on/off
     exp1_pre_a1.reset()
     // reset exp1_pre_a2 to account for continued clicks & clear times on/off
@@ -1005,15 +1004,16 @@ function exp1_preRoutineBegin(snapshot) {
     exp1_pre_a3.reset()
     // reset exp1_pre_a4 to account for continued clicks & clear times on/off
     exp1_pre_a4.reset()
+    exp1_pre_bg.setImage(exp1_pre_stimuli);
     psychoJS.experiment.addData('exp1_pre.started', globalClock.getTime());
     exp1_preMaxDuration = null
     // keep track of which components have finished
     exp1_preComponents = [];
-    exp1_preComponents.push(exp1_pre_bg);
     exp1_preComponents.push(exp1_pre_a1);
     exp1_preComponents.push(exp1_pre_a2);
     exp1_preComponents.push(exp1_pre_a3);
     exp1_preComponents.push(exp1_pre_a4);
+    exp1_preComponents.push(exp1_pre_bg);
     
     for (const thisComponent of exp1_preComponents)
       if ('status' in thisComponent)
@@ -1048,16 +1048,6 @@ function exp1_preRoutineEachFrame() {
         window.handleButtonClick(4);
       }
     }
-    
-    // *exp1_pre_bg* updates
-    if (t >= 0.0 && exp1_pre_bg.status === PsychoJS.Status.NOT_STARTED) {
-      // keep track of start time/frame for later
-      exp1_pre_bg.tStart = t;  // (not accounting for frame time here)
-      exp1_pre_bg.frameNStart = frameN;  // exact frame index
-      
-      exp1_pre_bg.setAutoDraw(true);
-    }
-    
     
     // *exp1_pre_a1* updates
     if (t >= 0 && exp1_pre_a1.status === PsychoJS.Status.NOT_STARTED) {
@@ -1214,6 +1204,16 @@ function exp1_preRoutineEachFrame() {
       // if exp1_pre_a4 is clicked next frame, it is a new click
       exp1_pre_a4.wasClicked = false;
     }
+    
+    // *exp1_pre_bg* updates
+    if (t >= 0.0 && exp1_pre_bg.status === PsychoJS.Status.NOT_STARTED) {
+      // keep track of start time/frame for later
+      exp1_pre_bg.tStart = t;  // (not accounting for frame time here)
+      exp1_pre_bg.frameNStart = frameN;  // exact frame index
+      
+      exp1_pre_bg.setAutoDraw(true);
+    }
+    
     // check for quit (typically the Esc key)
     if (psychoJS.experiment.experimentEnded || psychoJS.eventManager.getKeys({keyList:['escape']}).length > 0) {
       return quitPsychoJS('The [Escape] key was pressed. Goodbye!', false);
